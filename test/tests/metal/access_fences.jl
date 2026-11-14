@@ -156,31 +156,36 @@ asm_multidim = String(take!(buf13))
 # Tests
 # ============================================================================
 
+# Metal.jl < 1.12 emits AIR atomic intrinsics directly; from 1.12 it emits LLVM atomics
+# (through UnsafeAtomics), which GPUCompiler lowers to AIR after `@device_code_llvm`.
+has_atomic_store(asm) = occursin("air.atomic.global.store", asm) || occursin(r"store atomic [^\n]* syncscope", asm)
+has_atomic_load(asm) = occursin("air.atomic.global.load", asm) || occursin(r"load atomic [^\n]* syncscope", asm)
+
 @testset "Metal access fences tests" begin
     # ============================================================================
     # Store
     # ============================================================================
     @testset "Metal Store: Relaxed" begin
         # Relaxed store: no fence, only atomic store
-        @test occursin("air.atomic.global.store", asm_store_relaxed)
+        @test has_atomic_store(asm_store_relaxed)
         @test !occursin(r"air\.atomic\.fence\(", asm_store_relaxed)  # Not a function call
     end
 
     @testset "Metal Store: Release" begin
         # Release store (default Device): flags=1, order=3 (Release), scope=2 (device thread scope)
-        @test occursin("air.atomic.global.store", asm_store_release)
+        @test has_atomic_store(asm_store_release)
         @test occursin("air.atomic.fence(i32 1, i32 3, i32 2)", asm_store_release)
     end
 
     @testset "Metal Store: Device Scope" begin
         # Device release: flags=1, order=3 (Release), scope=2 (device thread scope)
-        @test occursin("air.atomic.global.store", asm_store_device)
+        @test has_atomic_store(asm_store_device)
         @test occursin("air.atomic.fence(i32 1, i32 3, i32 2)", asm_store_device)
     end
 
     @testset "Metal Store: Workgroup Scope" begin
         # Workgroup release: flags=2, order=3 (Release), scope=1 (threadgroup thread scope)
-        @test occursin("air.atomic.global.store", asm_store_workgroup)
+        @test has_atomic_store(asm_store_workgroup)
         @test occursin("air.atomic.fence(i32 2, i32 3, i32 1)", asm_store_workgroup)
     end
 
@@ -190,25 +195,25 @@ asm_multidim = String(take!(buf13))
 
     @testset "Metal Load: Relaxed" begin
         # Relaxed load: no fence, only atomic load
-        @test occursin("air.atomic.global.load", asm_load_relaxed)
+        @test has_atomic_load(asm_load_relaxed)
         @test !occursin("call void @air.atomic.fence", asm_load_relaxed)  # Not a function call
     end
 
     @testset "Metal Load: Acquire" begin
         # Acquire load (default Device): flags=1, order=2 (Acquire), scope=2 (device thread scope)
-        @test occursin("air.atomic.global.load", asm_load_acquire)
+        @test has_atomic_load(asm_load_acquire)
         @test occursin("air.atomic.fence(i32 1, i32 2, i32 2)", asm_load_acquire)
     end
 
     @testset "Metal Load: Device Scope" begin
         # Device acquire: flags=1, order=2 (Acquire), scope=2 (device thread scope)
-        @test occursin("air.atomic.global.load", asm_load_device)
+        @test has_atomic_load(asm_load_device)
         @test occursin("air.atomic.fence(i32 1, i32 2, i32 2)", asm_load_device)
     end
 
     @testset "Metal Load: Workgroup Scope" begin
         # Workgroup acquire: flags=2, order=2 (Acquire), scope=1 (threadgroup thread scope)
-        @test occursin("air.atomic.global.load", asm_load_workgroup)
+        @test has_atomic_load(asm_load_workgroup)
         @test occursin("air.atomic.fence(i32 2, i32 2, i32 1)", asm_load_workgroup)
     end
 
@@ -243,7 +248,7 @@ asm_multidim = String(take!(buf13))
 
     @testset "Metal: Multidimensional Indexing" begin
         # Multidimensional array access (default @access uses Release for store)
-        @test occursin("air.atomic.global.store", asm_multidim)
+        @test has_atomic_store(asm_multidim)
         @test occursin("air.atomic.fence(i32 1, i32 3, i32 2)", asm_multidim)
     end
 end

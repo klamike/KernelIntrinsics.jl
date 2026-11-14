@@ -21,7 +21,7 @@ KernelIntrinsicsMetalExt = "Metal"
 [compat]
 AMDGPU = "1, 2"
 CUDA = "5.9, 6"
-KernelAbstractions = "0.9.38"
+KernelAbstractions = "0.9.38, 0.10"
 LLVM = "10"
 Metal = "1"
 SIMD = "3.7"
